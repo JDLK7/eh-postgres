@@ -44,17 +44,24 @@ func NewEventStoreWithClient(client *gorm.DB, options ...Option) (*EventStore, e
 		return nil, fmt.Errorf("missing DB client")
 	}
 
-	s := &EventStore{
+	eventStore := &EventStore{
 		client: client,
 	}
 
 	for _, option := range options {
-		if err := option(s); err != nil {
+		if err := option(eventStore); err != nil {
 			return nil, fmt.Errorf("error while applying option: %w", err)
 		}
 	}
 
-	return s, nil
+	// TODO: maybe shouldn't be its responsability
+	err := eventStore.createTables()
+	if err != nil {
+		eventStore.Close(context.Background())
+		return nil, err
+	}
+
+	return eventStore, nil
 }
 
 // Option is an option setter used to configure creation.
@@ -73,14 +80,6 @@ func (e *EventStore) Save(ctx context.Context, events []eh.Event, originalVersio
 	if len(events) == 0 {
 		return eh.EventStoreError{
 			Err:       eh.ErrNoEventsToAppend,
-			Namespace: eh.NamespaceFromContext(ctx),
-		}
-	}
-
-	if err := e.createTables(); err != nil {
-		return eh.EventStoreError{
-			Err:       ErrEventstoreMigration,
-			BaseErr:   err,
 			Namespace: eh.NamespaceFromContext(ctx),
 		}
 	}
@@ -233,7 +232,13 @@ func (e *EventStore) Load(ctx context.Context, uuid uuid.UUID) ([]eh.Event, erro
 }
 
 func (e *EventStore) createTables() error {
-	return e.client.AutoMigrate(&aggregateRecord{}, &evt{})
+	if err := e.client.AutoMigrate(&aggregateRecord{}, &evt{}); err != nil {
+		return eh.EventStoreError{
+			Err:       ErrEventstoreMigration,
+			BaseErr:   err,
+		}
+	}
+	return nil
 }
 
 // Close closes the database client.
