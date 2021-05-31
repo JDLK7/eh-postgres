@@ -175,7 +175,9 @@ func (e *EventStore) Save(ctx context.Context, events []eh.Event, originalVersio
 
 func (e *EventStore) Load(ctx context.Context, uuid uuid.UUID) ([]eh.Event, error) {
 	var aggregate aggregateRecord
-	err := e.client.Preload("Events").First(&aggregate, uuid).Error
+	err := e.client.Preload("Events", func(db *gorm.DB) *gorm.DB {
+		return db.Order("events.version ASC")
+	}).First(&aggregate, uuid).Error
 	if err == gorm.ErrRecordNotFound {
 		return []eh.Event{}, nil
 	} else if err != nil {
