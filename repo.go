@@ -124,7 +124,7 @@ func (r *Repo) Save(ctx context.Context, entity eh.Entity) error {
 		}
 	}
 
-	if err := r.client.WithContext(ctx).Save(entity).Error; err != nil {
+	if err := r.client.Session(&gorm.Session{Context: ctx, FullSaveAssociations: true}).Save(entity).Error; err != nil {
 		return eh.RepoError{
 			Err:       eh.ErrCouldNotSaveEntity,
 			BaseErr:   err,
