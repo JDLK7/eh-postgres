@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gorm.io/gorm/clause"
+
 	eh "github.com/looplab/eventhorizon"
 	"github.com/looplab/eventhorizon/uuid"
 	"gorm.io/driver/postgres"
@@ -69,7 +71,7 @@ func (r *Repo) Find(ctx context.Context, id uuid.UUID) (eh.Entity, error) {
 	}
 
 	entity := r.factoryFn()
-	if err := r.client.WithContext(ctx).First(entity, "id = ?", id.String()).Error; err == gorm.ErrRecordNotFound {
+	if err := r.client.WithContext(ctx).Preload(clause.Associations).First(entity, "id = ?", id.String()).Error; err == gorm.ErrRecordNotFound {
 		return nil, eh.RepoError{
 			Err:       eh.ErrEntityNotFound,
 			BaseErr:   err,
